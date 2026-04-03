@@ -1,8 +1,10 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import { buildChain } from "./chain.js";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 let chain;
