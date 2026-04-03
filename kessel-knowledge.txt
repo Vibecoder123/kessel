@@ -1,0 +1,73 @@
+eXcho "data/" >> .gitignore
+mv docs/sample.txt docs/kessel-knowledge.txt
+nano ~/kessel/src/index.js
+import "dotenv/config";
+import express from "express";
+import fs from "fs/promises";
+import { ingest } from "./ingest.js";
+import { buildChain } from "./chain.js";
+import { INDEX_FILE } from "./vectorstore.js";
+
+const app = express();
+app.use(express.json());
+app.use(express.static("public"));
+
+let chain;
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", ready: !!chain });
+});
+
+app.post("/ask", async (req, res) => {
+  const { question } = req.body ?? {};
+  if (!question || typeof question !== "string" || !question.trim()) {
+    return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
+  }
+  try {
+    const result = await chain.invoke({ input: question.trim() });
+    res.json({ answer: result.answer });
+  } catch (err) {
+    console.error("Chain error:", err);
+    res.status(500).json({ error: "Failed to generate an answer." });
+  }
+});
+
+const PORT = process.env.PORT ?? 3000;
+
+async function start() {
+  // Auto-ingest if no index exists yet (e.g. fresh Railway deployment)
+  try {
+    await fs.access(INDEX_FILE);
+    console.log("Index found — skipping ingestion.");
+  } catch {
+    console.log("No index found — running ingestion...");
+    await ingest();
+    console.log("Ingestion complete.");
+  }
+
+  console.log("Building chain...");
+  try {
+    chain = await buildChain();
+    console.log("Chain ready.");
+  } catch (err)
+    console.error("Failed to build chain:", err.message);
+    process.exit(1);
+  }export { ingest };
+
+// Run directly if called as a script (npm run ingest)
+if (process.argv[1].includes("ingest.js")) {
+  ingest().catch((err) => {
+    console.error("Ingestion failed:", err.message);
+    process.exit(1);
+  });
+}
+
+  app.listen(PORT, () => {
+    console.log(`Kessel listening on http://localhost:${PORT}`);
+  });
+}
+
+start();
+
+nano ~/kessel/src/ingest.js
+
