@@ -1,0 +1,22 @@
+Kessel Knowledge Base — Sample Document
+
+Project Overview
+Kessel is an internal knowledge base system that allows teams to query private documentation using natural language. It uses a retrieval-augmented generation (RAG) architecture: documents are chunked, embedded, and stored in a vector database. At query time, the most relevant chunks are retrieved and passed as context to a large language model, which synthesises a grounded answer.
+
+Key Principles
+- Answers are always grounded in indexed content. Kessel will not speculate or hallucinate beyond what the documents say.
+- Source documents are never exposed to end users — only synthesised answers are returned.
+- The system is designed to be self-hosted so that sensitive documents never leave your infrastructure.
+
+Getting Started
+To add knowledge to Kessel, place .txt or .md files in the docs/ directory and run the ingest script. Once ingestion is complete, start the server and send questions to the POST /ask endpoint.
+
+Supported Document Types
+Currently supported: plain text (.txt) and Markdown (.md). PDF support can be added by installing the pdf-parse package and registering a PDFLoader in src/ingest.js.
+
+Architecture
+- Vector store: Chroma (local, self-hosted)
+- Embeddings: Voyage AI voyage-3 model
+- LLM: Anthropic Claude (claude-sonnet-4-6)
+- API layer: Node.js with Express
+- RAG framework: LangChain

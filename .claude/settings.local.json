@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(wait)",
+      "Bash(docker:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(mkdir -p /home/vibecoder123/kessel/data)",
+      "Bash(npm run:*)",
+      "Bash(npm start:*)",
+      "Bash(curl:*)",
+      "Bash(npm show:*)",
+      "Bash(npm info:*)"
+    ]
+  }
+}
