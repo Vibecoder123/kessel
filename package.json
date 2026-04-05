@@ -12,6 +12,7 @@
     "@langchain/community": "^0.3.28",
     "@langchain/core": "^0.3.40",
     "@langchain/textsplitters": "^0.1.0",
+    "@supabase/supabase-js": "^2.101.1",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",

@@ -1,11 +1,17 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { createClient } from "@supabase/supabase-js";
 import { buildChain } from "./chain.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 let chain;
 
@@ -15,14 +21,19 @@ app.get("/health", (_req, res) => {
 
 app.post("/ask", async (req, res) => {
   const { question } = req.body ?? {};
-
   if (!question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
   }
-
   try {
     const result = await chain.invoke({ input: question.trim() });
-    res.json({ answer: result.answer });
+    const answer = result.answer;
+
+    // Log to Supabase — fire and forget, never blocks the response
+    supabase.from("query_logs").insert({ question: question.trim(), answer }).then(({ error }) => {
+      if (error) console.error("Logging error:", error.message);
+    });
+
+    res.json({ answer });
   } catch (err) {
     console.error("Chain error:", err);
     res.status(500).json({ error: "Failed to generate an answer." });
@@ -38,13 +49,11 @@ async function start() {
     console.log("Chain ready.");
   } catch (err) {
     console.error("Failed to build chain:", err.message);
-    console.error("Make sure Chroma is running and you have run `npm run ingest` first.");
     process.exit(1);
   }
-
   app.listen(PORT, () => {
     console.log(`Kessel listening on http://localhost:${PORT}`);
-    console.log("  POST /ask  { \"question\": \"...\" }");
+    console.log('  POST /ask  { "question": "..." }');
     console.log("  GET  /health");
   });
 }
