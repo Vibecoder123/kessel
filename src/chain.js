@@ -22,6 +22,7 @@ export async function buildChain() {
   const llm = new ChatAnthropic({
     model: "claude-sonnet-4-6",
     apiKey: process.env.ANTHROPIC_API_KEY,
+    temperature: 0.2,
   });
   // Workaround for @langchain/anthropic 0.3.34 bug: topP defaults to -1 and is
   // sent as-is for non-haiku models, but the API rejects top_p=-1.
