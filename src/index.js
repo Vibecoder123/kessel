@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { buildChain } from "./chain.js";
+import { checkRestriction } from "./restrictions.js";
 
 const app = express();
 app.use(cors());
@@ -33,7 +34,19 @@ app.post("/ask", async (req, res) => {
       if (error) console.error("Logging error:", error.message);
     });
 
-    res.json({ answer });
+const restriction = checkRestriction(question);
+
+    if (restriction.restricted) {
+      return res.json({
+        answer,
+        restricted: true,
+        restrictionLabel: restriction.label,
+        contactUrl: restriction.contactUrl
+      });
+    }
+
+    return res.json({ answer, restricted: false });   
+ 
   } catch (err) {
     console.error("Chain error:", err);
     res.status(500).json({ error: "Failed to generate an answer." });

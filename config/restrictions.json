@@ -1,0 +1,17 @@
+{
+  "contactUrl": "https://yoursite.com/contact",
+  "restrictedTopics": [
+    {
+      "label": "Pricing",
+      "keywords": ["price", "pricing", "cost", "quote", "fee", "rates", "charge"]
+    },
+    {
+      "label": "Contract Terms",
+      "keywords": ["contract", "NDA", "agreement", "terms", "legal", "liability"]
+    },
+    {
+      "label": "Roadmap",
+      "keywords": ["roadmap", "upcoming", "future", "planned", "release date", "timeline"]
+    }
+  ]
+}
