@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { buildChain } from "./chain.js";
 import { checkRestriction } from "./restrictions.js";
 import uploadRouter from "./upload.js";
+import { requireApiKey } from "./auth.js";
+import { getVectorStore, saveVectorStore } from "./vectorstore.js";
 
 const app = express();
 app.use(cors());
@@ -52,6 +54,53 @@ const restriction = checkRestriction(question);
   } catch (err) {
     console.error("Chain error:", err);
     res.status(500).json({ error: "Failed to generate an answer." });
+  }
+});
+
+app.get("/documents", requireApiKey, async (_req, res) => {
+  try {
+    const store = await getVectorStore();
+    const counts = {};
+    for (const v of store.memoryVectors) {
+      const source = v.metadata?.source ?? "(unknown)";
+      counts[source] = (counts[source] ?? 0) + 1;
+    }
+    const documents = Object.keys(counts)
+      .sort()
+      .map((filename) => ({ filename, chunks: counts[filename] }));
+    return res.json({ documents });
+  } catch (err) {
+    console.error("GET /documents error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/documents/:filename", requireApiKey, async (req, res) => {
+  const { filename } = req.params;
+
+  if (filename.includes("/") || filename.includes("..")) {
+    return res.status(400).json({ error: "Invalid filename." });
+  }
+
+  try {
+    const store = await getVectorStore();
+    const before = store.memoryVectors.length;
+    store.memoryVectors = store.memoryVectors.filter(
+      (v) => v.metadata?.source !== filename
+    );
+    const removed = before - store.memoryVectors.length;
+
+    if (removed === 0) {
+      return res.status(404).json({ error: `No chunks found for '${filename}'.` });
+    }
+
+    await saveVectorStore(store);
+    req.app.emit("vectorStoreUpdated");
+
+    return res.json({ success: true, filename, chunksRemoved: removed });
+  } catch (err) {
+    console.error("DELETE /documents error:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 

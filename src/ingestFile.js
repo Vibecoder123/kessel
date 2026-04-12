@@ -1,3 +1,4 @@
+import path from "path";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
@@ -36,6 +37,12 @@ export async function ingestFile(filePath, mimeType) {
 
   if (chunks.length === 0) {
     throw new Error("File produced no chunks after splitting — it may be empty.");
+  }
+
+  // --- Stamp source filename onto every chunk ---
+  const basename = path.basename(filePath);
+  for (const chunk of chunks) {
+    chunk.metadata.source = basename;
   }
 
   // --- Append to existing store ---
