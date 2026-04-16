@@ -56,6 +56,18 @@ async function loadPdfDocs(filePath) {
   const needsOcr = docs.length === 0 || emptyPages.length > 0;
   if (!needsOcr) return docs;
 
+  // Check if pdftoppm is available
+  let pdftoppmAvailable = true;
+  try {
+    await execFileAsync("pdftoppm", ["-v"]);
+  } catch (e) {
+    if (e.code === "ENOENT") pdftoppmAvailable = false;
+  }
+
+  if (!pdftoppmAvailable) {
+    return docs.filter((d) => d.pageContent.trim().length > 0);
+  }
+
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kessel-ocr-"));
   try {
     const pngFiles = await renderPagesToPng(filePath, tmpDir);
