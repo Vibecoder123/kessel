@@ -10,7 +10,8 @@
       "Bash(npm start:*)",
       "Bash(curl:*)",
       "Bash(npm show:*)",
-      "Bash(npm info:*)"
+      "Bash(npm info:*)",
+      "Bash(git:*)"
     ]
   }
 }
