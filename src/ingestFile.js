@@ -112,7 +112,7 @@ async function loadPdfDocs(filePath) {
  * @param {string} mimeType  "application/pdf" | "text/plain"
  * @returns {Promise<number>} Number of chunks added.
  */
-export async function ingestFile(filePath, mimeType) {
+export async function ingestFile(filePath, mimeType, userId) {
   // --- Load ---
   let docs;
   if (mimeType === "application/pdf") {
@@ -148,9 +148,9 @@ export async function ingestFile(filePath, mimeType) {
   // second saveVectorStore call overwrites the first's additions.
   // Acceptable for a low-traffic internal tool; add a queue/mutex here if
   // concurrent uploads become a real use case.
-  const store = await getVectorStore();
+  const store = await getVectorStore(userId);
   await store.addDocuments(chunks);
-  await saveVectorStore(store);
+  await saveVectorStore(store, userId);
 
   return chunks.length;
 }

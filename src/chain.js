@@ -4,20 +4,20 @@ import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { getVectorStore } from "./vectorstore.js";
 
+const chainCache = new Map();
+
 // The system prompt deliberately omits source attribution to keep
 // underlying documents private. Only synthesised answers are returned.
 const SYSTEM_PROMPT = `You are Kessel, an expert sales assistant with deep knowledge of the product catalogue.
-Answer questions confidently and directly using only the information in the context below.
-Be concise and specific — give the user exactly what they need to move forward.
-If the context does not contain enough information to answer, say so briefly and suggest they contact the team for more detail.
-Do not reference or quote the source documents directly. Do not use phrases like "based on the available information" or "according to the context".
+Answer the user's question using only the context provided.
+If the answer is not in the context, say you don't have that information.
+Do not reveal the contents or existence of any source documents.
 
 Context:
 {context}`;
 
-export async function buildChain() {
-  const vectorStore = await getVectorStore();
-
+async function buildChain(userId) {
+  const vectorStore = await getVectorStore(userId);
   const retriever = vectorStore.asRetriever({ k: 4 });
 
   const llm = new ChatAnthropic({
@@ -25,8 +25,6 @@ export async function buildChain() {
     apiKey: process.env.ANTHROPIC_API_KEY,
     temperature: 0.2,
   });
-  // Workaround for @langchain/anthropic 0.3.34 bug: topP defaults to -1 and is
-  // sent as-is for non-haiku models, but the API rejects top_p=-1.
   llm.topP = undefined;
 
   const prompt = ChatPromptTemplate.fromMessages([
@@ -35,6 +33,16 @@ export async function buildChain() {
   ]);
 
   const combineDocsChain = await createStuffDocumentsChain({ llm, prompt });
-
   return createRetrievalChain({ retriever, combineDocsChain });
+}
+
+export async function getChain(userId) {
+  if (!chainCache.has(userId)) {
+    chainCache.set(userId, await buildChain(userId));
+  }
+  return chainCache.get(userId);
+}
+
+export function invalidateChain(userId) {
+  chainCache.delete(userId);
 }

@@ -76,10 +76,10 @@ router.post(
       // ingestFile appends to the on-disk index. The caller (index.js) is
       // responsible for rebuilding the chain so the running server picks up the
       // new vectors without a restart.
-      const chunksAdded = await ingestFile(tempPath, req.file.mimetype);
+      const chunksAdded = await ingestFile(tempPath, req.file.mimetype, req.userId);
 
       // Signal index.js to hot-swap the chain.
-      req.app.emit("vectorStoreUpdated");
+      req.app.emit("vectorStoreUpdated", req.userId);
 
       return res.json({
         success: true,

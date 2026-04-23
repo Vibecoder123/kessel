@@ -1,8 +1,9 @@
-import path from "path";
-import fs from "fs/promises";
-import { fileURLToPath } from "url";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { VoyageEmbeddings } from "@langchain/community/embeddings/voyage";
+import { createRequire } from "module";
+import { promises as fs } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,7 +11,10 @@ export const INDEX_FILE = path.resolve(
   process.env.INDEX_PATH ?? path.join(__dirname, "..", "data", "index.json")
 );
 
-const BACKUP_FILE = INDEX_FILE + ".bak";
+function getIndexPath(userId) {
+  if (!userId) return INDEX_FILE;
+  return path.resolve(path.join(__dirname, "..", "data", userId, "index.json"));
+}
 
 export function getEmbeddings() {
   return new VoyageEmbeddings({
@@ -19,31 +23,33 @@ export function getEmbeddings() {
   });
 }
 
-export async function saveVectorStore(store) {
-  await fs.mkdir(path.dirname(INDEX_FILE), { recursive: true });
+export async function saveVectorStore(store, userId) {
+  const indexFile = getIndexPath(userId);
+  await fs.mkdir(path.dirname(indexFile), { recursive: true });
 
-  const tmpFile = INDEX_FILE + ".tmp";
+  const tmpFile = indexFile + ".tmp";
   const data = JSON.stringify(store.memoryVectors);
 
   await fs.writeFile(tmpFile, data, "utf-8");
 
   try {
-    await fs.copyFile(INDEX_FILE, BACKUP_FILE);
+    await fs.copyFile(indexFile, indexFile + ".bak");
   } catch {
     // No existing index to back up — that's fine
   }
 
-  await fs.rename(tmpFile, INDEX_FILE);
+  await fs.rename(tmpFile, indexFile);
 }
 
-export async function getVectorStore() {
+export async function getVectorStore(userId) {
+  const indexFile = getIndexPath(userId);
   let raw;
   try {
-    raw = await fs.readFile(INDEX_FILE, "utf-8");
+    raw = await fs.readFile(indexFile, "utf-8");
   } catch (err) {
     if (err.code === "ENOENT") {
       throw new Error(
-        `Index file not found at ${INDEX_FILE}. Run "npm run ingest" first.`
+        `Index file not found at ${indexFile}. Run "npm run ingest" first.`
       );
     }
     throw err;
@@ -54,11 +60,12 @@ export async function getVectorStore() {
     vectors = JSON.parse(raw);
   } catch {
     throw new Error(
-      `Index file at ${INDEX_FILE} is corrupted. Delete it and run "npm run ingest" to rebuild.`
+      `Index file at ${indexFile} is corrupted. Delete it and run "npm run ingest" to rebuild.`
     );
   }
 
-  const store = new MemoryVectorStore(getEmbeddings());
+  const embeddings = getEmbeddings();
+  const store = new MemoryVectorStore(embeddings);
   store.memoryVectors = vectors;
   return store;
 }
