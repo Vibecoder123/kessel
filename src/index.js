@@ -22,7 +22,7 @@ const supabase = createClient(
 let chain;
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", ready: !!chain });
+  res.json({ status: "ok" });
 });
 
 app.post("/ask", requireAuth, async (req, res) => {
