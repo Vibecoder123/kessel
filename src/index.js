@@ -95,7 +95,7 @@ app.delete("/documents/:filename", requireApiKey, async (req, res) => {
       return res.status(404).json({ error: `No chunks found for '${filename}'.` });
     }
 
-    await saveVectorStore(store req.userId);
+    await saveVectorStore(store, req.userId);
     req.app.emit("vectorStoreUpdated", req.userId);
 
     return res.json({ success: true, filename, chunksRemoved: removed });
