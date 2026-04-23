@@ -60,7 +60,7 @@ const restriction = checkRestriction(question);
 
 app.get("/documents", requireApiKey, async (_req, res) => {
   try {
-const store = await getVectorStore(req.userId || "admin");    
+const store = awaitgetVectorStore(req.userId || "admin");    
 const counts = {};
     for (const v of store.memoryVectors) {
       const source = v.metadata?.source ?? "(unknown)";
@@ -84,7 +84,7 @@ app.delete("/documents/:filename", requireApiKey, async (req, res) => {
   }
 
   try {
-const store = await getVectorStore(req.userId || "admin");
+const store = await getVectorStore("admin");
 const before = store.memoryVectors.length;
     store.memoryVectors = store.memoryVectors.filter(
       (v) => v.metadata?.source !== filename
@@ -95,8 +95,8 @@ const before = store.memoryVectors.length;
       return res.status(404).json({ error: `No chunks found for '${filename}'.` });
     }
 
-await saveVectorStore(store, req.userId || "admin");
-req.app.emit("vectorStoreUpdated", req.userId || "admin");
+await saveVectorStore(store, "admin");
+req.app.emit("vectorStoreUpdated", "admin");
     return res.json({ success: true, filename, chunksRemoved: removed });
   } catch (err) {
     console.error("DELETE /documents error:", err);
