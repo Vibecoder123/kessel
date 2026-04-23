@@ -95,7 +95,7 @@ const before = store.memoryVectors.length;
       return res.status(404).json({ error: `No chunks found for '${filename}'.` });
     }
 
-await saveVectorStore(store req.userId || "admin");
+await saveVectorStore(store, req.userId || "admin");
 req.app.emit("vectorStoreUpdated", req.userId || "admin");
     return res.json({ success: true, filename, chunksRemoved: removed });
   } catch (err) {
