@@ -106,35 +106,12 @@ app.delete("/documents/:filename", requireApiKey, async (req, res) => {
 });
 
 const PORT = process.env.PORT ?? 3000;
-
-// Hot-swap the chain after a successful /upload so new vectors are immediately
-// searchable without a server restart.
-// RISK: buildChain() re-reads the full index.json into a new MemoryVectorStore.
-// For a very large index this rebuild will take time and consume extra memory
-// transiently. No requests are blocked during the swap, but the window between
-// ingestFile() writing and the new chain being assigned means a query arriving
-// in that gap will still use the old chain.
-app.on("vectorStoreUpdated", async () => {
-  console.log("Vector store updated — rebuilding chain...");
-  try {
-    chain = await buildChain();
-    console.log("Chain rebuilt successfully.");
-  } catch (err) {
-    console.error("Failed to rebuild chain after upload:", err.message);
-    // The old chain stays active. The server remains up but won't surface the
-    // newly uploaded documents until the next successful rebuild or restart.
-  }
+app.on("vectorStoreUpdated", (userId) => {
+  invalidateChain(userId);
 });
 
 async function start() {
-  console.log("Connecting to vector store and building chain...");
-  try {
-    chain = await buildChain();
-    console.log("Chain ready.");
-  } catch (err) {
-    console.error("Failed to build chain:", err.message);
-    process.exit(1);
-  }
+
   app.listen(PORT, () => {
     console.log(`Kessel listening on http://localhost:${PORT}`);
     console.log('  POST /ask  { "question": "..." }');
