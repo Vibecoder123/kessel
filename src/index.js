@@ -2,10 +2,11 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
-import { buildChain } from "./chain.js";
+import { getChain, invalidateChain } from "./chain.js";
 import { checkRestriction } from "./restrictions.js";
 import uploadRouter from "./upload.js";
 import { requireApiKey } from "./auth.js";
+import { requireAuth } from "./middleware/auth.js";
 import { getVectorStore, saveVectorStore } from "./vectorstore.js";
 
 const app = express();
@@ -24,7 +25,7 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", ready: !!chain });
 });
 
-app.post("/ask", async (req, res) => {
+app.post("/ask", requireAuth, async (req, res) => {
   const { question } = req.body ?? {};
   if (!question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
@@ -59,7 +60,7 @@ const restriction = checkRestriction(question);
 
 app.get("/documents", requireApiKey, async (_req, res) => {
   try {
-    const store = await getVectorStore();
+    const store = await getVectorStore(req.userId);
     const counts = {};
     for (const v of store.memoryVectors) {
       const source = v.metadata?.source ?? "(unknown)";
@@ -94,8 +95,8 @@ app.delete("/documents/:filename", requireApiKey, async (req, res) => {
       return res.status(404).json({ error: `No chunks found for '${filename}'.` });
     }
 
-    await saveVectorStore(store);
-    req.app.emit("vectorStoreUpdated");
+    await saveVectorStore(store req.userId);
+    req.app.emit("vectorStoreUpdated", req.userId);
 
     return res.json({ success: true, filename, chunksRemoved: removed });
   } catch (err) {
