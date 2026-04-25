@@ -60,7 +60,7 @@ const restriction = checkRestriction(question);
 
 app.get("/documents", requireApiKey, async (_req, res) => {
   try {
-const store = await getVectorStore(req.userId || "admin");    
+const store = await getVectorStore("admin");
 const counts = {};
     for (const v of store.memoryVectors) {
       const source = v.metadata?.source ?? "(unknown)";
