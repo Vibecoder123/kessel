@@ -48,9 +48,7 @@ export async function getVectorStore(userId) {
     raw = await fs.readFile(indexFile, "utf-8");
   } catch (err) {
     if (err.code === "ENOENT") {
-      throw new Error(
-        `Index file not found at ${indexFile}. Run "npm run ingest" first.`
-      );
+return new MemoryVectorStore(embeddings);
     }
     throw err;
   }
