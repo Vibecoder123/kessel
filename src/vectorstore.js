@@ -48,7 +48,7 @@ export async function getVectorStore(userId) {
     raw = await fs.readFile(indexFile, "utf-8");
   } catch (err) {
     if (err.code === "ENOENT") {
-return new MemoryVectorStore(embeddings);
+  return new MemoryVectorStore(getEmbeddings());
     }
     throw err;
   }
