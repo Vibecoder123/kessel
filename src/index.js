@@ -31,6 +31,7 @@ app.post("/ask", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
   }
   try {
+    if (!chain) chain = await getChain("admin");
     const result = await chain.invoke({ input: question.trim() });
     const answer = result.answer;
 
@@ -107,6 +108,7 @@ req.app.emit("vectorStoreUpdated", "admin");
 const PORT = process.env.PORT ?? 3000;
 app.on("vectorStoreUpdated", (userId) => {
   invalidateChain(userId);
+  chain = null;
 });
 
 async function start() {
