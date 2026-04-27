@@ -85,20 +85,18 @@ app.delete("/documents/:filename", requireApiKey, async (req, res) => {
   }
 
   try {
-const store = await getVectorStore("admin");
-const before = store.memoryVectors.length;
-    store.memoryVectors = store.memoryVectors.filter(
-      (v) => v.metadata?.source !== filename
-    );
-    const removed = before - store.memoryVectors.length;
-
-    if (removed === 0) {
+    const { createClient } = await import("@supabase/supabase-js");
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { error, count } = await client
+      .from("documents")
+      .delete({ count: "exact" })
+      .eq("metadata->>source", filename);
+    if (error) throw new Error(error.message);
+    if (count === 0) {
       return res.status(404).json({ error: `No chunks found for '${filename}'.` });
     }
-
-await saveVectorStore(store, "admin");
-req.app.emit("vectorStoreUpdated", "admin");
-    return res.json({ success: true, filename, chunksRemoved: removed });
+    req.app.emit("vectorStoreUpdated", "admin");
+    return res.json({ success: true, filename, chunksRemoved: count });
   } catch (err) {
     console.error("DELETE /documents error:", err);
     return res.status(500).json({ error: err.message });

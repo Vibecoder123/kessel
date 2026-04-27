@@ -1,20 +1,6 @@
-import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
 import { VoyageEmbeddings } from "@langchain/community/embeddings/voyage";
-import { createRequire } from "module";
-import { promises as fs } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export const INDEX_FILE = path.resolve(
-  process.env.INDEX_PATH ?? path.join(__dirname, "..", "data", "index.json")
-);
-
-function getIndexPath(userId) {
-  if (!userId) return INDEX_FILE;
-  return path.resolve(path.join(__dirname, "..", "data", userId, "index.json"));
-}
+import { createClient } from "@supabase/supabase-js";
 
 export function getEmbeddings() {
   return new VoyageEmbeddings({
@@ -23,47 +9,24 @@ export function getEmbeddings() {
   });
 }
 
-export async function saveVectorStore(store, userId) {
-  const indexFile = getIndexPath(userId);
-  await fs.mkdir(path.dirname(indexFile), { recursive: true });
-
-  const tmpFile = indexFile + ".tmp";
-  const data = JSON.stringify(store.memoryVectors);
-
-  await fs.writeFile(tmpFile, data, "utf-8");
-
-  try {
-    await fs.copyFile(indexFile, indexFile + ".bak");
-  } catch {
-    // No existing index to back up — that's fine
-  }
-
-  await fs.rename(tmpFile, indexFile);
+function getSupabaseClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, key);
 }
 
 export async function getVectorStore(userId) {
-  const indexFile = getIndexPath(userId);
-  let raw;
-  try {
-    raw = await fs.readFile(indexFile, "utf-8");
-  } catch (err) {
-    if (err.code === "ENOENT") {
-  return new MemoryVectorStore(getEmbeddings());
-    }
-    throw err;
-  }
+  const client = getSupabaseClient();
+  return new SupabaseVectorStore(getEmbeddings(), {
+    client,
+    tableName: "documents",
+    queryName: "match_documents",
+    filter: userId ? { userId } : undefined,
+  });
+}
 
-  let vectors;
-  try {
-    vectors = JSON.parse(raw);
-  } catch {
-    throw new Error(
-      `Index file at ${indexFile} is corrupted. Delete it and run "npm run ingest" to rebuild.`
-    );
-  }
-
-  const embeddings = getEmbeddings();
-  const store = new MemoryVectorStore(embeddings);
-  store.memoryVectors = vectors;
-  return store;
+export async function saveVectorStore(store, userId) {
+  // No-op: SupabaseVectorStore writes directly to the database on addDocuments.
+  // This function is kept so callers don't need to change.
 }
