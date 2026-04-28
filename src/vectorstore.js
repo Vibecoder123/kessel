@@ -22,7 +22,7 @@ export async function getVectorStore(userId) {
     client,
     tableName: "documents",
     queryName: "match_documents",
-    filter: userId ? { userId } : undefined,
+    // filter removed — single tenant pilot, all docs shared
   });
 }
 
