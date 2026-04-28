@@ -61,10 +61,15 @@ const restriction = checkRestriction(question);
 
 app.get("/documents", requireApiKey, async (_req, res) => {
   try {
-const store = await getVectorStore("admin");
-const counts = {};
-    for (const v of store.memoryVectors) {
-      const source = v.metadata?.source ?? "(unknown)";
+    const { createClient } = await import("@supabase/supabase-js");
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { data, error } = await client
+      .from("documents")
+      .select("metadata");
+    if (error) throw new Error(error.message);
+    const counts = {};
+    for (const row of data) {
+      const source = row.metadata?.source ?? "(unknown)";
       counts[source] = (counts[source] ?? 0) + 1;
     }
     const documents = Object.keys(counts)
@@ -76,7 +81,6 @@ const counts = {};
     return res.status(500).json({ error: err.message });
   }
 });
-
 app.delete("/documents/:filename", requireApiKey, async (req, res) => {
   const { filename } = req.params;
 
