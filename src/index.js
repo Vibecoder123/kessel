@@ -58,7 +58,7 @@ const restriction = checkRestriction(question);
     res.status(500).json({ error: "Failed to generate an answer." });
   }
 });
-app.post("/api/chat", requireAuth, async (req, res) => {
+app.post("/api/chat", requireApiKey, async (req, res) => {
   const { question } = req.body ?? {};
   if (!question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
