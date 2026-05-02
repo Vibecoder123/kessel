@@ -58,6 +58,43 @@ const restriction = checkRestriction(question);
     res.status(500).json({ error: "Failed to generate an answer." });
   }
 });
+app.post("/api/chat", requireAuth, async (req, res) => {
+  const { question } = req.body ?? {};
+  if (!question || typeof question !== "string" || !question.trim()) {
+    return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
+  }
+ 
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+ 
+  try {
+    if (!chain) chain = await getChain("admin");
+ 
+    const stream = await chain.stream({ input: question.trim() });
+ 
+    for await (const chunk of stream) {
+      // createRetrievalChain emits chunks with an `answer` key as text accumulates
+      if (chunk.answer) {
+        res.write(`data: ${JSON.stringify({ token: chunk.answer })}\n\n`);
+      }
+    }
+ 
+    res.write("data: [DONE]\n\n");
+    res.end();
+ 
+    // Log to Supabase after stream completes — fire and forget
+    // Full answer not available mid-stream; log the question only for now
+    supabase.from("query_logs").insert({ question: question.trim(), answer: "[streamed]" }).then(({ error }) => {
+      if (error) console.error("Logging error:", error.message);
+    });
+ 
+  } catch (err) {
+    console.error("/api/chat stream error:", err);
+    res.write(`data: ${JSON.stringify({ error: "Failed to generate an answer." })}\n\n`);
+    res.end();
+  }
+});
 
 app.get("/documents", requireApiKey, async (_req, res) => {
   try {
