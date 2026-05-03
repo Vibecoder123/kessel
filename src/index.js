@@ -25,7 +25,7 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.post("/ask", requireAuth, async (req, res) => {
+app.post("/ask", requireApiKey, async (req, res) => {
   const { question } = req.body ?? {};
   if (!question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
