@@ -25,7 +25,9 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.post("/ask", requireApiKey, async (req, res) => {
+// /ask — internal use only (askkessel.com/app)
+// Authenticated via Supabase JWT. No restriction/contact us logic.
+app.post("/ask", requireAuth, async (req, res) => {
   const { question } = req.body ?? {};
   if (!question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
@@ -40,7 +42,33 @@ app.post("/ask", requireApiKey, async (req, res) => {
       if (error) console.error("Logging error:", error.message);
     });
 
-const restriction = checkRestriction(question);
+    return res.json({ answer, restricted: false });
+
+  } catch (err) {
+    console.error("Chain error:", err);
+    res.status(500).json({ error: "Failed to generate an answer." });
+  }
+});
+
+// /api/embed — public-facing client widget (kessel-embed.js)
+// Authenticated via KESSEL_API_KEY through Cloudflare Worker proxy.
+// Applies restriction keyword logic and returns contact us CTA when triggered.
+app.post("/api/embed", requireApiKey, async (req, res) => {
+  const { question } = req.body ?? {};
+  if (!question || typeof question !== "string" || !question.trim()) {
+    return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
+  }
+  try {
+    if (!chain) chain = await getChain("admin");
+    const result = await chain.invoke({ input: question.trim() });
+    const answer = result.answer;
+
+    // Log to Supabase — fire and forget, never blocks the response
+    supabase.from("query_logs").insert({ question: question.trim(), answer }).then(({ error }) => {
+      if (error) console.error("Logging error:", error.message);
+    });
+
+    const restriction = checkRestriction(question);
 
     if (restriction.restricted) {
       return res.json({
@@ -51,44 +79,46 @@ const restriction = checkRestriction(question);
       });
     }
 
-    return res.json({ answer, restricted: false });   
- 
+    return res.json({ answer, restricted: false });
+
   } catch (err) {
     console.error("Chain error:", err);
     res.status(500).json({ error: "Failed to generate an answer." });
   }
 });
+
+// /api/chat — internal demo widget (kessel-widget.js)
+// Authenticated via KESSEL_API_KEY through Cloudflare Worker proxy.
+// SSE streaming. No restriction logic.
 app.post("/api/chat", requireApiKey, async (req, res) => {
   const { question } = req.body ?? {};
   if (!question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "'question' is required and must be a non-empty string." });
   }
- 
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
- 
+
   try {
     if (!chain) chain = await getChain("admin");
- 
+
     const stream = await chain.stream({ input: question.trim() });
- 
+
     for await (const chunk of stream) {
-      // createRetrievalChain emits chunks with an `answer` key as text accumulates
       if (chunk.answer) {
         res.write(`data: ${JSON.stringify({ token: chunk.answer })}\n\n`);
       }
     }
- 
+
     res.write("data: [DONE]\n\n");
     res.end();
- 
+
     // Log to Supabase after stream completes — fire and forget
-    // Full answer not available mid-stream; log the question only for now
     supabase.from("query_logs").insert({ question: question.trim(), answer: "[streamed]" }).then(({ error }) => {
       if (error) console.error("Logging error:", error.message);
     });
- 
+
   } catch (err) {
     console.error("/api/chat stream error:", err);
     res.write(`data: ${JSON.stringify({ error: "Failed to generate an answer." })}\n\n`);
@@ -118,6 +148,7 @@ app.get("/documents", requireApiKey, async (_req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
 app.delete("/documents/:filename", requireApiKey, async (req, res) => {
   const { filename } = req.params;
 
@@ -151,11 +182,12 @@ app.on("vectorStoreUpdated", (userId) => {
 });
 
 async function start() {
-
   app.listen(PORT, () => {
     console.log(`Kessel listening on http://localhost:${PORT}`);
-    console.log('  POST /ask  { "question": "..." }');
-    console.log('  POST /upload  (multipart/form-data, field: "file")');
+    console.log('  POST /ask        { "question": "..." }  — internal, Supabase auth');
+    console.log('  POST /api/embed  { "question": "..." }  — embed widget, API key auth');
+    console.log('  POST /api/chat   { "question": "..." }  — demo widget, API key auth, SSE');
+    console.log('  POST /upload     (multipart/form-data, field: "file")');
     console.log("  GET  /health");
   });
 }
