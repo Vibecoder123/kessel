@@ -134,14 +134,18 @@ app.get("/documents", requireApiKey, async (_req, res) => {
       .from("documents")
       .select("metadata");
     if (error) throw new Error(error.message);
-    const counts = {};
+    const files = {};
     for (const row of data) {
       const source = row.metadata?.source ?? "(unknown)";
-      counts[source] = (counts[source] ?? 0) + 1;
+      if (!files[source]) {
+        files[source] = {
+          filename: source,
+          pageCount: row.metadata?.pageCount ?? null,
+          fileSize: row.metadata?.fileSize ?? null,
+        };
+      }
     }
-    const documents = Object.keys(counts)
-      .sort()
-      .map((filename) => ({ filename, chunks: counts[filename] }));
+    const documents = Object.keys(files).sort().map((f) => files[f]);
     return res.json({ documents });
   } catch (err) {
     console.error("GET /documents error:", err);
