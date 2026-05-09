@@ -134,10 +134,15 @@ export async function ingestFile(filePath, mimeType, userId) {
     throw new Error("File produced no chunks after splitting — it may be empty.");
   }
 
-  // --- Stamp source filename onto every chunk ---
+  // --- Stamp source filename, page count and file size onto every chunk ---
+  const stat = await fs.stat(filePath);
+  const fileSize = stat.size;
+  const pageCount = docs.length;
   const basename = path.basename(filePath);
   for (const chunk of chunks) {
     chunk.metadata.source = basename;
+    chunk.metadata.fileSize = fileSize;
+    chunk.metadata.pageCount = pageCount;
   }
 
   // --- Append to existing store ---
