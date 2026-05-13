@@ -168,7 +168,7 @@ export async function ingestFile(filePath, mimeType, userId) {
     throw new Error("File produced no usable chunks after filtering — content may be empty or unreadable.");
   }
 
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 8;
   const store = await getVectorStore(userId);
   for (let i = 0; i < usableChunks.length; i += BATCH_SIZE) {
     const batch = usableChunks.slice(i, i + BATCH_SIZE);
