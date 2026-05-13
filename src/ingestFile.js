@@ -153,8 +153,18 @@ export async function ingestFile(filePath, mimeType, userId) {
   // second saveVectorStore call overwrites the first's additions.
   // Acceptable for a low-traffic internal tool; add a queue/mutex here if
   // concurrent uploads become a real use case.
+  // Chunks are embedded in batches of 50 with a 1-second pause between batches
+  // to stay within Voyage AI's free-tier per-minute token cap.
+  // saveVectorStore is called once after all batches complete — not per batch.
+  const BATCH_SIZE = 50;
   const store = await getVectorStore(userId);
-  await store.addDocuments(chunks);
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+    const batch = chunks.slice(i, i + BATCH_SIZE);
+    await store.addDocuments(batch);
+    if (i + BATCH_SIZE < chunks.length) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
   await saveVectorStore(store, userId);
 
   return chunks.length;
