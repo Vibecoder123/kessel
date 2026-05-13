@@ -156,12 +156,24 @@ export async function ingestFile(filePath, mimeType, userId) {
   // Chunks are embedded in batches of 50 with a 1-second pause between batches
   // to stay within Voyage AI's free-tier per-minute token cap.
   // saveVectorStore is called once after all batches complete — not per batch.
+  // Filter out chunks with no usable text before embedding.
+  // PDFs with font encoding issues (cmap warnings) can produce empty or
+  // whitespace-only chunks that cause Voyage to return an unexpected response,
+  // crashing the LangChain client when it tries to read embeddings from it.
+  const MIN_CHUNK_LENGTH = 20;
+  const usableChunks = chunks.filter(
+    (c) => c.pageContent && c.pageContent.trim().length >= MIN_CHUNK_LENGTH
+  );
+  if (usableChunks.length === 0) {
+    throw new Error("File produced no usable chunks after filtering — content may be empty or unreadable.");
+  }
+
   const BATCH_SIZE = 50;
   const store = await getVectorStore(userId);
-  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-    const batch = chunks.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < usableChunks.length; i += BATCH_SIZE) {
+    const batch = usableChunks.slice(i, i + BATCH_SIZE);
     await store.addDocuments(batch);
-    if (i + BATCH_SIZE < chunks.length) {
+    if (i + BATCH_SIZE < usableChunks.length) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
